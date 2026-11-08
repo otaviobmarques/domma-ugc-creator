@@ -8,8 +8,10 @@ export const sql: postgres.Sql =
   globalThis.__sql ??
   postgres(process.env.DATABASE_URL ?? "postgres://domma:domma@localhost:5432/domma", {
     max: Number(process.env.DB_MAX_CONEXOES ?? 10),
-    idle_timeout: 30,
-    // Pooler do Supabase em modo transação (porta 6543) não aceita prepared statements.
+    idle_timeout: Number(process.env.DB_IDLE_S ?? 30),
+    connect_timeout: 15,
+    // Use o pooler do Supabase em modo SESSÃO (porta 5432). O modo transação (6543)
+    // não suporta o encadeamento de consultas do postgres.js e trava conexões.
     prepare: !/:6543\//.test(process.env.DATABASE_URL ?? ""),
     ssl: /supabase\.(co|com)/.test(process.env.DATABASE_URL ?? "") ? "require" : undefined,
     transform: { undefined: null },

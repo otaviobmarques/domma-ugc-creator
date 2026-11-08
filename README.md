@@ -62,6 +62,12 @@ Os IDs de modelo dos agregadores ficam em `src/lib/providers/catalogo.ts` (sobre
 - **Texto do termo** (`src/lib/termo.ts`) precisa de validação jurídica (decisão nº 6).
 - Convite de novos usuários e papel *cliente* com login ainda não têm tela (o cliente aprova via link).
 
+## Implantação atual
+
+- **Banco:** Supabase `domma-ugc-creator` (sa-east-1). Painel e worker conectam pelo pooler em **modo sessão** (porta 5432), com o usuário `ugc_app`. Não use o modo transação (6543): ele trava com o encadeamento de consultas do `postgres.js`.
+- **Painel:** Vercel (time REDBOX), funções em `gru1`, domínio `ugccreator.dommasistemas.com.br` (CNAME na HostGator).
+- **Worker:** Railway, serviço `worker` (Dockerfile). Na partida aplica o schema e o seed (idempotentes).
+
 ## Implantação sugerida
 
 - Painel: Vercel ou Railway (`npm start`). Worker: Railway com o `Dockerfile` (`npm run worker`), que já instala FFmpeg e a fonte das legendas.
