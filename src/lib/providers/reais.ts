@@ -168,14 +168,19 @@ export const falKlingI2V = falVideo("fal-kling-i2v", "broll");
 
 export const falNanoBanana: ProvedorImagem = {
   id: "fal-nano-banana",
-  async gerarImagemChave({ fotoAtor, fotosProduto, cena }, ctx) {
+  async gerarImagemChave({ fotoAtor, fotosProduto, cena, formato }, ctx) {
     const key = exigirChave(ctx.apiKey, "fal.ai");
     const imagens = await Promise.all([fotoAtor, ...fotosProduto.slice(0, 2)].filter(Boolean).map((c) => dataUri(c!, mimeDe(c!))));
+    // Sem imagem de partida (ex.: criar ator sintético): texto -> imagem com o prompt como veio.
+    const modelo = imagens.length ? OPCOES.imagem[0].modelo! : (process.env.FAL_MODELO_IMAGEM_TEXTO ?? "fal-ai/nano-banana");
+    const corpo = imagens.length
+      ? { prompt: promptImagemChave(cena), image_urls: imagens, num_images: 1 }
+      : { prompt: cena, num_images: 1, aspect_ratio: formato === "16:9" ? "16:9" : formato === "1:1" ? "1:1" : "9:16" };
     // Chamada síncrona (fal.run) — imagem leva poucos segundos.
-    const r = await fetch(`https://fal.run/${OPCOES.imagem[0].modelo}`, {
+    const r = await fetch(`https://fal.run/${modelo}`, {
       method: "POST",
       headers: { authorization: `Key ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ prompt: promptImagemChave(cena), image_urls: imagens, num_images: 1 }),
+      body: JSON.stringify(corpo),
     });
     if (!r.ok) await falhaHttp(r, "fal.ai");
     const j = (await r.json()) as { images: { url: string }[] };
