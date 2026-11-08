@@ -1,12 +1,24 @@
 # Gera o instalador da Versão para PC (Windows) e publica no GitHub Releases.
-# Dispara ao enviar uma tag v* (ex.: v0.1.0, igual à versão em desktop/package.json)
-# ou manualmente em Actions › Instalador Windows › Run workflow.
+# Dispara quando o app muda na main (para lançar, suba "version" em desktop/package.json),
+# ao enviar uma tag v*, ou manualmente em Actions › Instalador Windows › Run workflow.
+# O electron-builder cria a tag v<versão> e o Release; se já existir, não republica.
 name: Instalador Windows
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    paths:
+      - "desktop/**"
+      - "src/lib/pipeline/montagem-core.ts"
+      - "src/lib/ffmpeg.ts"
+      - "assets/fonts/**"
+      - ".github/workflows/instalador-windows.yml"
   workflow_dispatch:
+
+concurrency:
+  group: instalador-windows
+  cancel-in-progress: false
 
 permissions:
   contents: write

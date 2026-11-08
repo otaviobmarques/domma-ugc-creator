@@ -72,8 +72,7 @@ a **montagem dos vídeos (FFmpeg) roda no PC**. A IA continua nas APIs dos prove
 - Se houver um PC online no workspace, o job de montagem é criado com `executor = 'local'`. Se nenhum PC pegar em 2 minutos
   (ou travar por 15), o worker da nuvem assume. Depois de uma falha no PC, a nova tentativa vai direto para a nuvem.
 - O núcleo da montagem (`src/lib/pipeline/montagem-core.ts`) é o mesmo no servidor e no app.
-- **Publicar uma versão:** atualize `version` em `desktop/package.json` e envie uma tag igual (`git tag v0.1.1 && git push origin v0.1.1`).
-  O GitHub Actions gera o `DommaUGCCreator-Setup.exe` num Windows e publica no Release; o painel (página **Versão para PC**) e a
+- **Publicar uma versão:** suba `version` em `desktop/package.json` e faça push na `main`. O GitHub Actions gera o `DommaUGCCreator-Setup.exe` num Windows e publica no Release; o painel (página **Versão para PC**) e a
   atualização automática do app pegam sempre o mais recente.
 - Testar localmente sem Electron: o agente (`desktop/agente.js`) é Node puro.
 
