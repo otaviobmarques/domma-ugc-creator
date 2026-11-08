@@ -1,7 +1,7 @@
 {
   "name": "domma-ugc-creator-desktop",
   "productName": "Domma UGC Creator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Versão para PC do Domma UGC Creator: mesma conta da nuvem, montagem dos vídeos no computador.",
   "author": "Domma Tecnologia",
   "main": "main.js",

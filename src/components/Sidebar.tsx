@@ -74,7 +74,7 @@ export function Sidebar({ workspace, usuario, papel, versaoPC }: { workspace: st
       <div className="hidden px-4 pb-4 md:block">
         <a href="/versao-pc"
           className={clsx(
-            "group block rounded-2xl bg-gradient-to-br from-roxo to-[#7b5cff] p-4 text-white shadow-[0_10px_24px_-12px_rgba(91,61,245,0.8)] transition hover:brightness-105",
+            "group block rounded-2xl bg-gradient-to-br from-roxo to-[#8a7bff] p-4 text-white shadow-[0_10px_24px_-12px_rgba(101,81,251,0.8)] transition hover:brightness-105",
             ativo("/versao-pc") && "ring-4 ring-roxo/20",
           )}>
           <div className="flex items-center gap-2.5">

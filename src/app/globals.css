@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-roxo: #5b3df5;
-  --color-roxo-escuro: #4628d9;
+  --color-roxo: #6551fb;
+  --color-roxo-escuro: #4f3ae6;
   --color-roxo-claro: #efebff;
   --color-lavanda: #f6f4ff;
-  --color-tinta: #17142e;
+  --color-tinta: #1a1036;
   --color-cinza: #6b6880;
   --color-borda: #e9e6f3;
   --color-fundo: #f6f5fa;
@@ -30,7 +30,7 @@ body {
 @utility kicker { @apply text-[11px] font-semibold tracking-[0.18em] uppercase text-roxo; }
 @utility cartao { @apply rounded-2xl border border-borda bg-white shadow-[0_1px_2px_rgba(23,20,46,0.04),0_4px_16px_-8px_rgba(23,20,46,0.08)]; }
 @utility btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
-@utility btn-primario { @apply btn bg-roxo text-white shadow-[0_6px_16px_-6px_rgba(91,61,245,0.6)] hover:bg-roxo-escuro; }
+@utility btn-primario { @apply btn bg-roxo text-white shadow-[0_6px_16px_-6px_rgba(101,81,251,0.55)] hover:bg-roxo-escuro; }
 @utility btn-secundario { @apply btn border border-borda bg-white text-tinta hover:bg-lavanda; }
 @utility btn-perigo { @apply btn border border-erro/30 bg-white text-erro hover:bg-erro-claro; }
 @utility campo { @apply w-full rounded-xl border border-borda bg-white px-3 py-2.5 text-sm outline-none transition focus:border-roxo focus:ring-4 focus:ring-roxo/10; }

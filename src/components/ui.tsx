@@ -115,16 +115,18 @@ export function tempoRelativo(d: Date | string) {
   return dt.toLocaleDateString("pt-BR");
 }
 
-export function Logo() {
+/** Logotipo oficial Domma Tecnologia. `variante="branco"` para fundos escuros. */
+export function Logo({ variante = "cor", altura = 34 }: { variante?: "cor" | "branco"; altura?: number }) {
   return (
-    <div>
-      <div className="flex items-center gap-1.5 text-[22px] font-bold tracking-tight text-tinta">
-        <svg width="30" height="18" viewBox="0 0 30 18" aria-hidden="true">
-          <path d="M2 15 L9 4 L15 12 L21 4 L28 15" fill="none" stroke="#5b3df5" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Domma
-      </div>
-      <div className="-mt-1 pl-9 text-[8px] font-semibold tracking-[0.3em] text-roxo">TECNOLOGIA</div>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={variante === "branco" ? "/marca/logo-branco.png" : "/marca/logo.png"}
+      alt="Domma Tecnologia"
+      width={Math.round(altura * 4.81)}
+      height={altura}
+      style={{ height: altura, width: "auto" }}
+      className="select-none"
+      draggable={false}
+    />
   );
 }

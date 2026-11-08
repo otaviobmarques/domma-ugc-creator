@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Checagem leve de presença do cookie; a validação real (assinatura, papel,
 // workspace) acontece no servidor em exigirSessao()/exigirApi().
-const PUBLICAS = ["/login", "/aprovar", "/termo", "/api/login", "/api/aprovacao", "/api/termo", "/api/midia", "/api/webhooks"];
+const PUBLICAS = ["/login", "/marca", "/icon.png", "/apple-icon.png", "/aprovar", "/termo", "/api/login", "/api/aprovacao", "/api/termo", "/api/midia", "/api/webhooks"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

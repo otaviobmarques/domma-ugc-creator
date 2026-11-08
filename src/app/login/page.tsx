@@ -17,7 +17,7 @@ export default function Login() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-lavanda px-4">
       <form onSubmit={entrar} className="cartao w-full max-w-sm p-7">
-        <Logo />
+        <Logo altura={42} />
         <h1 className="mt-6 text-xl font-semibold">Entrar no UGC Creator</h1>
         <label className="rotulo mt-5" htmlFor="email">E-mail ou usuário</label>
         <input id="email" name="email" type="text" required className="campo" autoComplete="username" autoCapitalize="none" />
