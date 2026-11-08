@@ -64,9 +64,13 @@ Os IDs de modelo dos agregadores ficam em `src/lib/providers/catalogo.ts` (sobre
 
 ## Implantação atual
 
-- **Banco:** Supabase `domma-ugc-creator` (sa-east-1). Painel e worker conectam pelo pooler em **modo sessão** (porta 5432), com o usuário `ugc_app`. Não use o modo transação (6543): ele trava com o encadeamento de consultas do `postgres.js`.
-- **Painel:** Vercel (time REDBOX), funções em `gru1`, domínio `ugccreator.dommasistemas.com.br` (CNAME na HostGator).
+- **Banco:** Supabase `domma-ugc-creator` (sa-east-1), usuário `ugc_app` (dono das tabelas; RLS ligado em todas).
+  - **Painel (Vercel)** conecta pelo pooler em **modo sessão** (`aws-1-sa-east-1.pooler.supabase.com:5432`), no máximo 2 conexões por instância. Não use o modo transação (6543): ele trava com o encadeamento de consultas do `postgres.js`. O pooler em modo sessão aceita 15 clientes no total.
+  - **Worker (Railway)** conecta **direto** em `db.<ref>.supabase.co:5432` por IPv6 (saída IPv6 ligada no serviço), fora do limite do pooler: 6 conexões do app + 6 da fila.
+  - O papel `ugc_app` encerra transações abandonadas após 60 s e consultas após 120 s.
+- **Painel:** Vercel (time REDBOX), funções em `gru1`, domínio `ugccreator.dommasistemas.com.br` (CNAME na HostGator). Deploy automático a cada push na `main`.
 - **Worker:** Railway, serviço `worker` (Dockerfile). Na partida aplica o schema e o seed (idempotentes).
+- **Arquivos:** tabela `arquivos` no Postgres. Para usar o Supabase Storage, cadastre a chave secreta do Supabase em Configurações › Chaves de API › Supabase Storage.
 
 ## Implantação sugerida
 
