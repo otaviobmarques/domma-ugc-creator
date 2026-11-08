@@ -63,6 +63,15 @@ export async function produzir(projetoId: string, ator: string) {
 export async function avancar(variacaoId: string) {
   const novos: { id: string; atraso: number }[] = [];
   let pausar: { ws: string; projetoId: string } | null = null;
+  let bloqueado: { ws: string; projetoId: string; letra: string; motivo: string } | null = null;
+
+  // Guardrails consultados ANTES da transação: dentro dela, uma segunda conexão
+  // do pool poderia esperar para sempre pela primeira (pool de 1 no serverless).
+  const [base] = await sql`select v.letra, p.id as projeto_id, p.workspace_id, p.ator_id, p.marca_id
+    from variacoes v join projetos p on p.id = v.projeto_id where v.id = ${variacaoId}`;
+  if (!base) return;
+  const motivoBloqueio = await checarConsentimento(base.ator_id, base.marca_id);
+  const situacaoCusto = motivoBloqueio ? "ok" : await checarCusto(base.projeto_id);
 
   await sql.begin(async (tx) => {
     await tx`select pg_advisory_xact_lock(hashtext(${variacaoId}))`;
@@ -96,14 +105,13 @@ export async function avancar(variacaoId: string) {
     if (!pendentes.length) return;
 
     // Guardrails antes de criar qualquer job.
-    const bloqueio = await checarConsentimento(v.ator_id, v.marca_id);
-    if (bloqueio) {
-      await tx`update variacoes set estado = 'falha', observacao = ${"Bloqueado: " + bloqueio} where id = ${variacaoId}`;
-      await auditar(v.workspace_id, "sistema", "bloqueio_consentimento", { projetoId: v.projeto_id, dados: { mensagem: `Produção da variação ${v.letra} parada: ${bloqueio}` } });
+    if (motivoBloqueio) {
+      await tx`update variacoes set estado = 'falha', observacao = ${"Bloqueado: " + motivoBloqueio} where id = ${variacaoId}`;
+      bloqueado = { ws: v.workspace_id, projetoId: v.projeto_id, letra: v.letra, motivo: motivoBloqueio };
       return;
     }
     const geraCusto = pendentes.some((p) => !["montagem", "qa"].includes(p.etapa));
-    if (geraCusto && (await checarCusto(v.projeto_id)) === "pausar") {
+    if (geraCusto && situacaoCusto === "pausar") {
       await tx`update projetos set estado = 'pausado_custo' where id = ${v.projeto_id}`;
       pausar = { ws: v.workspace_id, projetoId: v.projeto_id };
       return;
@@ -113,7 +121,8 @@ export async function avancar(variacaoId: string) {
       const falhas = falhasSeguidas(p.etapa, p.cenaId ?? undefined);
       if (falhas >= MAX_TENTATIVAS) {
         await tx`update variacoes set estado = 'falha', observacao = ${`${NOME_ETAPA[p.etapa]} falhou ${falhas} vezes; escalado ao operador`} where id = ${variacaoId}`;
-        await auditar(v.workspace_id, "agente", "decisao", { projetoId: v.projeto_id, dados: { mensagem: `Variação ${v.letra}: ${NOME_ETAPA[p.etapa]} falhou ${falhas}× (principal e alternativo). Escalei para o operador.` } });
+        const mensagem = `Variação ${v.letra}: ${NOME_ETAPA[p.etapa]} falhou ${falhas}× (principal e alternativo). Escalei para o operador.`;
+        await tx`insert into auditoria (workspace_id, projeto_id, ator, acao, dados) values (${v.workspace_id}, ${v.projeto_id}, 'agente', 'decisao', ${tx.json({ mensagem })})`;
         return;
       }
       const [j] = await tx`insert into jobs (workspace_id, projeto_id, variacao_id, cena_id, etapa, tentativa)
@@ -122,6 +131,10 @@ export async function avancar(variacaoId: string) {
     }
   });
 
+  if (bloqueado) {
+    const b = bloqueado as { ws: string; projetoId: string; letra: string; motivo: string };
+    await auditar(b.ws, "sistema", "bloqueio_consentimento", { projetoId: b.projetoId, dados: { mensagem: `Produção da variação ${b.letra} parada: ${b.motivo}` } });
+  }
   if (pausar) {
     const { ws, projetoId } = pausar as { ws: string; projetoId: string };
     const [ja] = await sql`select 1 from auditoria where projeto_id = ${projetoId} and acao = 'pausa_custo' and criado_em > now() - interval '10 minutes'`;
