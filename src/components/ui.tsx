@@ -118,7 +118,6 @@ export function tempoRelativo(d: Date | string) {
 /** Logotipo oficial Domma Tecnologia. `variante="branco"` para fundos escuros. */
 export function Logo({ variante = "cor", altura = 34 }: { variante?: "cor" | "branco"; altura?: number }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={variante === "branco" ? "/marca/logo-branco.png" : "/marca/logo.png"}
       alt="Domma Tecnologia"
