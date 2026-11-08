@@ -11,11 +11,20 @@ export const FILA_CONSULTA = "consulta";
 export function fila(): Promise<PgBoss> {
   if (!globalThis.__boss) {
     globalThis.__boss = (async () => {
-      const boss = new PgBoss(process.env.DATABASE_URL ?? "postgres://domma:domma@localhost:5432/domma");
+      const url = process.env.FILA_DATABASE_URL ?? process.env.DATABASE_URL ?? "postgres://domma:domma@localhost:5432/domma";
+      const soEnvio = process.env.FILA_SO_ENVIO === "true"; // painel serverless: só envia jobs
+      const boss = new PgBoss({
+        connectionString: url,
+        max: soEnvio ? 2 : 10,
+        supervise: !soEnvio,
+        schedule: !soEnvio,
+        migrate: !soEnvio,
+        ssl: /supabase\.(co|com)/.test(url) ? { rejectUnauthorized: false } : undefined,
+      });
       boss.on("error", (e: unknown) => console.error("[fila]", e));
       await boss.start();
-      for (const nome of [FILA_ETAPA, FILA_CONSULTA]) {
-        await boss.createQueue(nome).catch(() => {});
+      if (!soEnvio) {
+        for (const nome of [FILA_ETAPA, FILA_CONSULTA]) await boss.createQueue(nome).catch(() => {});
       }
       return boss;
     })();

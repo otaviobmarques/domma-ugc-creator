@@ -4,8 +4,8 @@
  * Os custos registrados usam a tabela de preços do provedor principal da etapa
  * e ficam marcados como "simulado".
  */
-import { caminhoLocal, existe, garantirPasta, novaChave } from "../storage";
-import { ffmpeg, probe, dimensoes, escDrawtext, FONTE } from "../ffmpeg";
+import { existe, garantirPasta, local, novaChave, publicar } from "../storage";
+import { ffmpeg, probe, dimensoes, filtroTexto } from "../ffmpeg";
 import { PRECOS } from "./catalogo";
 import type { ProvedorImagem, ProvedorTTS, ProvedorVideo, StatusExterno } from "./types";
 
@@ -24,6 +24,7 @@ export const ttsSimulador: ProvedorTTS = {
       "-f", "lavfi", "-i", `aevalsrc=0.18*sin(2*PI*170*t)*(0.55+0.45*sin(2*PI*4*t)):s=44100:d=${dur.toFixed(2)}`,
       "-ac", "1", "-c:a", "libmp3lame", "-b:a", "96k", out,
     ]);
+    await publicar(chave);
     return { chave, duracaoS: dur, custoUsd: texto.length * PRECOS.elevenlabsPorCaractere, unidade: "caracteres (simulado)", quantidade: texto.length };
   },
 };
@@ -34,11 +35,11 @@ export const imagemSimulador: ProvedorImagem = {
     const { w, h } = dimensoes(formato, "1080p");
     const chave = novaChave(ctx.workspaceId, ctx.projetoId, "imagem-chave.png");
     const out = await garantirPasta(chave);
-    const ator = fotoAtor && (await existe(fotoAtor)) ? caminhoLocal(fotoAtor) : null;
-    const prod = fotosProduto[0] && (await existe(fotosProduto[0])) ? caminhoLocal(fotosProduto[0]) : null;
-    const legenda = escDrawtext(`Imagem-chave (simulada): ${cena}`.slice(0, 70));
+    const ator = fotoAtor && (await existe(fotoAtor)) ? await local(fotoAtor) : null;
+    const prod = fotosProduto[0] && (await existe(fotosProduto[0])) ? await local(fotosProduto[0]) : null;
     const inputs = ["-f", "lavfi", "-i", `color=c=0x2a2350:s=${w}x${h}:d=1`];
-    let filtro = `[0:v]drawtext=fontfile=${FONTE}:text='${legenda}':fontcolor=white@0.8:fontsize=${Math.round(w / 28)}:x=(w-tw)/2:y=h*0.06[bg]`;
+    const texto = await filtroTexto([{ texto: `Imagem-chave (simulada): ${cena}`.slice(0, 70), tamanho: w / 30, x: w / 2, y: h * 0.04, cor: "DDDDEE" }], w, h);
+    let filtro = `[0:v]${texto}[bg]`;
     let ultimo = "bg";
     if (ator) {
       inputs.push("-i", ator);
@@ -51,6 +52,7 @@ export const imagemSimulador: ProvedorImagem = {
       ultimo = "v2";
     }
     await ffmpeg([...inputs, "-filter_complex", filtro, "-map", `[${ultimo}]`, "-frames:v", "1", out]);
+    await publicar(chave);
     return { chave, custoUsd: PRECOS.imagem["fal-nano-banana"], unidade: "imagem (simulado)", quantidade: 1 };
   },
 };
@@ -64,7 +66,7 @@ export const videoSimulador: ProvedorVideo = {
     const out = await garantirPasta(chave);
     // Imagem com leve "respiração" (zoom) + forma de onda da fala na base.
     await ffmpeg([
-      "-loop", "1", "-i", caminhoLocal(imagem), "-i", caminhoLocal(audio),
+      "-loop", "1", "-i", await local(imagem), "-i", await local(audio),
       "-filter_complex",
       `[0:v]scale=${w * 2}:${h * 2}:force_original_aspect_ratio=increase,crop=${w * 2}:${h * 2},` +
         `zoompan=z='1.04+0.02*sin(on/12)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${w}x${h}:fps=25[bg];` +
@@ -72,6 +74,7 @@ export const videoSimulador: ProvedorVideo = {
         `[bg][wv]overlay=0:H*0.86,format=yuv420p[v]`,
       "-map", "[v]", "-map", "1:a", "-shortest", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-c:a", "aac", out,
     ]);
+    await publicar(chave);
     const custo = duracaoS * PRECOS.lipsyncPorSegundo["fal-kling-avatar"];
     return { jobExternoId: JSON.stringify({ chave, pronto: Date.now() + ATRASO_MS, custo, dur: duracaoS, un: "segundos (simulado)" }) };
   },
@@ -81,13 +84,14 @@ export const videoSimulador: ProvedorVideo = {
     const out = await garantirPasta(chave);
     const frames = Math.round(duracaoS * 25);
     await ffmpeg([
-      "-loop", "1", "-i", caminhoLocal(imagem),
+      "-loop", "1", "-i", await local(imagem),
       "-vf",
       `scale=${w * 2}:${h * 2}:force_original_aspect_ratio=increase,crop=${w * 2}:${h * 2},` +
         `zoompan=z='min(zoom+0.0015,1.25)':d=${frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${w}x${h}:fps=25,` +
-        `drawtext=fontfile=${FONTE}:text='${escDrawtext(("B-roll: " + prompt).slice(0, 60))}':fontcolor=white@0.7:fontsize=${Math.round(w / 32)}:x=(w-tw)/2:y=h*0.12,format=yuv420p`,
+        `${await filtroTexto([{ texto: ("B-roll (simulado): " + prompt).slice(0, 60), tamanho: w / 32, x: w / 2, y: h * 0.1, cor: "DDDDEE" }], w, h)},format=yuv420p`,
       "-t", duracaoS.toFixed(2), "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-an", out,
     ]);
+    await publicar(chave);
     const custo = duracaoS * (PRECOS.brollPorSegundo["fal-seedance"][resolucao] ?? 0.232);
     return { jobExternoId: JSON.stringify({ chave, pronto: Date.now() + ATRASO_MS * 1.3, custo, dur: duracaoS, un: "segundos (simulado)" }) };
   },
@@ -95,7 +99,7 @@ export const videoSimulador: ProvedorVideo = {
     const j = JSON.parse(id) as { chave: string; pronto: number; custo: number; dur: number; un: string };
     const falta = j.pronto - Date.now();
     if (falta > 0) return { status: "gerando", progresso: Math.max(5, Math.min(95, Math.round(100 - (falta / (ATRASO_MS * 1.3)) * 100))) };
-    const info = await probe(caminhoLocal(j.chave));
+    const info = await probe(await local(j.chave));
     return { status: "concluido", chave: j.chave, duracaoS: info.duracao, uso: { custoUsd: j.custo, unidade: j.un, quantidade: j.dur } };
   },
 };

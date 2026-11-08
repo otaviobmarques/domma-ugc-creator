@@ -3,9 +3,8 @@
  * provedor. Endpoints e IDs de modelo a confirmar na prova de conceito —
  * os IDs vêm de catalogo.ts (sobrescrevíveis por variável de ambiente).
  */
-import { dataUri, mimeDe, novaChave, salvar } from "../storage";
+import { dataUri, local, mimeDe, novaChave, salvar } from "../storage";
 import { probe } from "../ffmpeg";
-import { caminhoLocal } from "../storage";
 import { OPCOES, PRECOS } from "./catalogo";
 import { ErroProvedor, type ProvedorImagem, type ProvedorTTS, type ProvedorVideo, type StatusExterno } from "./types";
 
@@ -47,7 +46,7 @@ export const elevenlabs: ProvedorTTS = {
     });
     if (!r.ok) await falhaHttp(r, "ElevenLabs");
     const chave = await salvar(novaChave(ctx.workspaceId, ctx.projetoId, "narracao.mp3"), Buffer.from(await r.arrayBuffer()));
-    const { duracao } = await probe(caminhoLocal(chave));
+    const { duracao } = await probe(await local(chave));
     return { chave, duracaoS: duracao, custoUsd: texto.length * PRECOS.elevenlabsPorCaractere, unidade: "caracteres", quantidade: texto.length };
   },
 };
@@ -151,7 +150,7 @@ function falVideo(opcaoId: string, etapa: "lipsync" | "broll"): ProvedorVideo {
       const out = (await r.json()) as { video?: { url: string }; error?: string; detail?: unknown };
       if (!out.video?.url) return { status: "falha", erro: out.error ?? JSON.stringify(out.detail ?? out).slice(0, 300) };
       const chave = await salvar(novaChave(ctx.workspaceId, "externo", `${etapa}.mp4`), await baixar(out.video.url));
-      const { duracao } = await probe(caminhoLocal(chave));
+      const { duracao } = await probe(await local(chave));
       const preco =
         etapa === "lipsync"
           ? (PRECOS.lipsyncPorSegundo[ref.opcao] ?? 0.1) * duracao

@@ -6,7 +6,7 @@
  * rodam em paralelo e uma refação só zera o que precisa ser refeito.
  */
 import { sql, auditar } from "../db";
-import { caminhoLocal, existe } from "../storage";
+import { existe, local } from "../storage";
 import { loudness, probe } from "../ffmpeg";
 import { enfileirarConsulta, enfileirarEtapa } from "../fila";
 import { imagem as provImagem, obterChave, resolver, roteamento, tts, video } from "../providers";
@@ -226,7 +226,7 @@ export async function executarEtapa(jobId: string) {
         let ref: { jobExternoId: string };
         if (etapa === "lipsync") {
           const [img] = await sql`select midia_url from cenas where variacao_id = ${v.id} and tipo = 'imagem'`;
-          const { duracao } = await probe(caminhoLocal(v.audio_url));
+          const { duracao } = await probe(await local(v.audio_url));
           ref = await impl.gerarFala!({ imagem: img.midia_url, audio: v.audio_url, resolucao: p.qualidade, duracaoS: duracao, formato: p.formato }, ctx);
         } else {
           const [img] = await sql`select midia_url from cenas where variacao_id = ${v.id} and tipo = 'imagem'`;
@@ -313,7 +313,7 @@ async function executarMontagem(c: Contexto) {
 async function executarQA(c: Contexto) {
   const { job, p, v } = c;
   await sql`update variacoes set estado = 'em_qa' where id = ${v.id}`;
-  const arquivo = caminhoLocal(v.video_final_url);
+  const arquivo = await local(v.video_final_url);
   const info = await probe(arquivo);
   const lufs = await loudness(arquivo).catch(() => null);
   const quadros = await extrairQuadros(p.workspace_id, p.id, v.video_final_url, 8);

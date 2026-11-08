@@ -4,6 +4,7 @@ import { ator, exigirApi, rota } from "@/lib/sessao";
 import { cifrar } from "@/lib/crypto";
 import { testarChave } from "@/lib/testarChave";
 import { PROVEDORES } from "@/lib/providers/catalogo";
+import { garantirBucket } from "@/lib/storage";
 
 /** Adicionar/trocar chave: testa antes de salvar, cifra e guarda só os 4 últimos caracteres visíveis. Só administradores. */
 export const POST = rota(async (req: Request) => {
@@ -23,6 +24,7 @@ export const POST = rota(async (req: Request) => {
     values (${s.workspaceId}, ${b.provedor}, ${b.nome || b.provedor}, ${cifrar(chave)}, ${chave.slice(-4)}, ${teste.saldoBaixo ? "saldo_baixo" : "conectado"}, ${b.limite_mensal_usd ?? null}, now())
     on conflict (workspace_id, provedor) do update set nome = excluded.nome, chave_cifrada = excluded.chave_cifrada, ultimos4 = excluded.ultimos4,
       status = excluded.status, limite_mensal_usd = excluded.limite_mensal_usd, testada_em = now()`;
+  if (b.provedor === "supabase") await garantirBucket().catch(() => false);
   await auditar(s.workspaceId, ator(s), "chave_salva", { alvo: b.provedor, dados: { ultimos4: chave.slice(-4), detalhe: teste.detalhe } });
   return NextResponse.json({ ok: true, detalhe: teste.detalhe });
 });

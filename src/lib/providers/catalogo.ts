@@ -22,6 +22,7 @@ export const PROVEDORES: InfoProvedor[] = [
   { id: "fal", nome: "fal.ai", descricao: "Agregador: Kling Avatar, Seedance, Nano Banana, OmniHuman", grupo: "video", formatoChave: "id:segredo" },
   { id: "domma_chat", nome: "Domma Chat", descricao: "Avisos e aprovação pelo WhatsApp", grupo: "integracao", formatoChave: "token do Domma Chat" },
   { id: "adplane", nome: "Adplane", descricao: "Envio do vídeo para campanhas", grupo: "integracao", formatoChave: "token do Adplane" },
+  { id: "supabase", nome: "Supabase Storage", descricao: "Armazenamento dos vídeos (opcional; sem ela, usa o banco)", grupo: "integracao", formatoChave: "sb_secret_... (chave secreta)" },
   { id: "resend", nome: "Resend", descricao: "E-mails de conclusão", grupo: "integracao", formatoChave: "re_..." },
 ];
 

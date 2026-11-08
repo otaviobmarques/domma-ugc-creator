@@ -2,12 +2,12 @@
 import "dotenv/config";
 import { sql } from "../src/lib/db";
 import { hashSenha, sha256, tokenAleatorio } from "../src/lib/crypto";
-import { garantirPasta } from "../src/lib/storage";
-import { ffmpeg, FONTE } from "../src/lib/ffmpeg";
+import { garantirBucket, garantirPasta, publicar } from "../src/lib/storage";
+import { ffmpeg, filtroTexto } from "../src/lib/ffmpeg";
 
 async function imagem(chave: string, filtro: string) {
   await ffmpeg(["-f", "lavfi", "-i", filtro, "-frames:v", "1", await garantirPasta(chave)]);
-  return chave;
+  return publicar(chave);
 }
 
 async function retrato(ws: string, nome: string, cor: string) {
@@ -15,7 +15,7 @@ async function retrato(ws: string, nome: string, cor: string) {
   return imagem(
     `${ws}/atores/${nome.toLowerCase().replace(/\W+/g, "-")}.png`,
     `color=c=${cor}:s=768x1024,drawbox=x=234:y=180:w=300:h=360:color=0xf1d4c0:t=fill,drawbox=x=134:y=560:w=500:h=464:color=0x3b3366:t=fill,` +
-      `drawtext=fontfile=${FONTE}:text='${nome}':fontcolor=white:fontsize=56:x=(w-tw)/2:y=h-120`,
+      await filtroTexto([{ texto: nome, tamanho: 56, x: 384, y: 1024 - 130 }], 768, 1024),
   );
 }
 
@@ -23,7 +23,7 @@ async function frasco(ws: string, nome: string, rotulo: string, cor: string) {
   return imagem(
     `${ws}/produtos/${nome}.png`,
     `color=c=0xf4f2fb:s=800x800,drawbox=x=320:y=120:w=160:h=90:color=0x222222:t=fill,drawbox=x=260:y=200:w=280:h=480:color=${cor}:t=fill,` +
-      `drawbox=x=280:y=330:w=240:h=200:color=white:t=fill,drawtext=fontfile=${FONTE}:text='${rotulo}':fontcolor=0x222222:fontsize=34:x=(w-tw)/2:y=405`,
+      `drawbox=x=280:y=330:w=240:h=200:color=white:t=fill,` + (await filtroTexto([{ texto: rotulo, tamanho: 34, x: 400, y: 410, cor: "222222" }], 800, 800)),
   );
 }
 
@@ -33,6 +33,7 @@ async function main() {
     console.log("seed já aplicado (workspace RedBox existe)");
     return sql.end();
   }
+  await garantirBucket().catch(() => false);
   const senha = process.env.SENHA_ADMIN ?? "domma123";
   const [ws] = await sql`insert into workspaces (nome, limite_custo_mensal) values ('RedBox', 3000) returning id`;
   const W = ws.id as string;
@@ -46,6 +47,7 @@ async function main() {
     "-f", "lavfi", "-i", "aevalsrc=0.15*sin(2*PI*261.6*t)+0.12*sin(2*PI*329.6*t)+0.1*sin(2*PI*392*t):s=44100:d=20",
     "-af", "afade=t=in:d=1,volume=0.6", "-c:a", "libmp3lame", "-b:a", "96k", await garantirPasta(musica),
   ]);
+  await publicar(musica);
 
   const marcas = [
     { nome: "Royal Vistorias", diretrizes: "Tom próximo e confiável. Falar de praticidade e cuidado com a pele.", vetados: ["barato", "milagroso"] },

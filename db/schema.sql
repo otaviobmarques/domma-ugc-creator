@@ -2,7 +2,7 @@
 -- Todas as tabelas de negócio têm workspace_id (preparação para SaaS).
 -- As políticas de Row Level Security para o Supabase ficam em db/supabase-rls.sql.
 
-create extension if not exists pgcrypto;
+-- gen_random_uuid() é nativo no Postgres 13+.
 
 create table if not exists workspaces (
   id uuid primary key default gen_random_uuid(),
@@ -246,3 +246,27 @@ end $$;
 drop trigger if exists auditoria_sem_update on auditoria;
 create trigger auditoria_sem_update before update or delete on auditoria
   for each row execute function auditoria_imutavel();
+
+-- Arquivos de mídia na nuvem: registro de onde está cada objeto
+-- (Supabase Storage) ou o próprio conteúdo (fallback sem chave de serviço).
+create table if not exists arquivos (
+  chave text primary key,
+  onde text not null check (onde in ('supabase','postgres')),
+  tamanho bigint not null,
+  mime text not null,
+  dados bytea,
+  criado_em timestamptz not null default now()
+);
+
+-- Supabase expõe o schema public pela API REST. O app não usa essa API:
+-- RLS ligado em todas as tabelas, sem políticas = nenhum acesso por anon/authenticated.
+-- O papel do app é dono das tabelas e por isso não é afetado.
+do $$
+declare t text;
+begin
+  foreach t in array array['workspaces','usuarios','membros','marcas','produtos','atores','consentimentos','projetos',
+    'variacoes','cenas','jobs','avaliacoes_qa','revisoes','custos','chaves_api','auditoria','arquivos']
+  loop
+    execute format('alter table %I enable row level security', t);
+  end loop;
+end $$;

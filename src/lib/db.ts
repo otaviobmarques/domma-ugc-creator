@@ -7,8 +7,11 @@ declare global {
 export const sql: postgres.Sql =
   globalThis.__sql ??
   postgres(process.env.DATABASE_URL ?? "postgres://domma:domma@localhost:5432/domma", {
-    max: 10,
+    max: Number(process.env.DB_MAX_CONEXOES ?? 10),
     idle_timeout: 30,
+    // Pooler do Supabase em modo transação (porta 6543) não aceita prepared statements.
+    prepare: !/:6543\//.test(process.env.DATABASE_URL ?? ""),
+    ssl: /supabase\.(co|com)/.test(process.env.DATABASE_URL ?? "") ? "require" : undefined,
     transform: { undefined: null },
     types: {
       // numeric -> number (valores de custo e nota)
