@@ -11,7 +11,8 @@
     "db:migrar": "tsx scripts/migrar.ts",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "poc": "tsx scripts/poc.ts"
+    "poc": "tsx scripts/poc.ts",
+    "worker:producao": "tsx scripts/migrar.ts && tsx scripts/seed.ts && tsx src/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
