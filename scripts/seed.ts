@@ -102,7 +102,7 @@ async function main() {
     select ${W}, id, 'Titular a confirmar', 'Vídeos publicitários UGC', ${todasMarcas}, ${["meta_ads"]}, ${d(0)}, ${d(365)}, ${tokenAleatorio()}, ${sha256("pendente")}
     from atores where nome = 'Envio sem nome'`;
 
-  console.log(`seed ok. Login: admin@redbox.com.br / ${senha}  (revisor@redbox.com.br / ${senha})`);
+  console.log(process.env.SENHA_ADMIN ? "seed ok. Login: admin@redbox.com.br (senha definida em SENHA_ADMIN)" : `seed ok. Login: admin@redbox.com.br / ${senha}`);
   await sql.end();
 }
 main().catch((e) => {
