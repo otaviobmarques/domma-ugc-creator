@@ -2,29 +2,12 @@ import { Download, Monitor, Check, Clock, ShieldCheck, AlertTriangle } from "luc
 import { sql } from "@/lib/db";
 import { exigirSessao } from "@/lib/sessao";
 import { Cabecalho, Cartao, Selo, tempoRelativo } from "@/components/ui";
-
-const REPO = "otaviobmarques/domma-ugc-creator";
-const ARQUIVO = "DommaUGCCreator-Setup.exe";
-
-async function ultimaVersao() {
-  try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-      headers: { accept: "application/vnd.github+json" },
-      next: { revalidate: 600 },
-    });
-    if (!r.ok) return null;
-    const j = (await r.json()) as { tag_name: string; published_at: string; assets: { name: string; size: number; browser_download_url: string }[] };
-    const exe = j.assets.find((a) => a.name === ARQUIVO);
-    return exe ? { versao: j.tag_name.replace(/^v/, ""), data: j.published_at, tamanhoMB: exe.size / 1048576, url: exe.browser_download_url } : null;
-  } catch {
-    return null;
-  }
-}
+import { ultimaVersaoPC } from "@/lib/versaoPC";
 
 export default async function VersaoPC() {
   const s = await exigirSessao();
   const [v, pcs] = await Promise.all([
-    ultimaVersao(),
+    ultimaVersaoPC(),
     sql`select a.maquina, a.versao, a.visto_em, u.nome from agentes_locais a join usuarios u on u.id = a.usuario_id
         where a.workspace_id = ${s.workspaceId} order by a.visto_em desc limit 20`,
   ]);

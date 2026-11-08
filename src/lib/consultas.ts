@@ -77,17 +77,34 @@ export async function painel(workspaceId: string) {
     select count(*) filter (where not exists (select 1 from revisoes r where r.variacao_id = v.id and r.acao = 'ajuste'))::float / nullif(count(*),0) as taxa
     from variacoes v join projetos p on p.id = v.projeto_id
     where p.workspace_id = ${workspaceId} and v.estado in ('aprovado','reprovado')`;
-  const projetos = await sql`
+  const projetos = await sql<Q[]>`
     select p.id, p.titulo, p.formato, p.duracao_s, p.n_variacoes, p.estado, p.atualizado_em, m.nome as marca,
+      pr.nome as produto, a.nome as ator, a.foto_url as ator_foto,
       (select coalesce(sum(valor_brl),0)::float from custos c where c.projeto_id = p.id) as custo,
-      (select round(avg(progresso)) from jobs j where j.projeto_id = p.id and j.estado = 'gerando')::int as progresso,
+      (select count(distinct (j.variacao_id, j.etapa)) from jobs j where j.projeto_id = p.id and j.estado = 'concluido')::int as etapas_ok,
       (select count(*) from variacoes v where v.projeto_id = p.id and v.estado = 'falha')::int as falhas,
+      (select count(*) from variacoes v where v.projeto_id = p.id and v.estado = 'aprovado')::int as aprovadas,
       (select etapa from jobs j where j.projeto_id = p.id and j.estado = 'falha' order by criado_em desc limit 1) as etapa_falha
-    from projetos p join marcas m on m.id = p.marca_id where p.workspace_id = ${workspaceId}
+    from projetos p join marcas m on m.id = p.marca_id join produtos pr on pr.id = p.produto_id join atores a on a.id = p.ator_id
+    where p.workspace_id = ${workspaceId}
     order by p.atualizado_em desc limit 30`;
+  const [ws] = await sql`select limite_custo_mensal from workspaces where id = ${workspaceId}`;
+  const atividade = await sql<Q[]>`
+    select au.dados->>'mensagem' as mensagem, au.criado_em, p.titulo, p.id as projeto_id
+    from auditoria au left join projetos p on p.id = au.projeto_id
+    where au.workspace_id = ${workspaceId} and au.ator = 'agente' and au.dados ? 'mensagem'
+    order by au.criado_em desc limit 8`;
   const custoMedio = k.videos ? k.custo_mes / Math.max(1, k.videos) : 0;
   return {
     entregues: Number(k.entregues), entregues_ant: Number(k.entregues_ant), em_producao: Number(k.em_producao), aguardando: Number(k.aguardando),
-    custo_mes: Number(k.custo_mes), custo_medio: custoMedio, aprovacao_1a: (ap?.taxa as number | null) ?? null, projetos,
+    custo_mes: Number(k.custo_mes), custo_medio: custoMedio, aprovacao_1a: (ap?.taxa as number | null) ?? null,
+    limite_mensal: Number(ws?.limite_custo_mensal ?? 0),
+    projetos: projetos.map((p) => ({
+      ...p,
+      ator_foto: urlAssinada(p.ator_foto),
+      // 6 etapas por variação: narração, imagem, lip-sync, B-roll, montagem, QA
+      progresso: Math.min(99, Math.round((Number(p.etapas_ok) / Math.max(1, Number(p.n_variacoes) * 6)) * 100)),
+    })) as Q[],
+    atividade,
   };
 }

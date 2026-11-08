@@ -7,7 +7,9 @@
   --color-lavanda: #f6f4ff;
   --color-tinta: #17142e;
   --color-cinza: #6b6880;
-  --color-borda: #e6e3f2;
+  --color-borda: #e9e6f3;
+  --color-fundo: #f6f5fa;
+  --color-tinta-2: #3d3a52;
   --color-ok: #12805c;
   --color-ok-claro: #e3f6ee;
   --color-alerta: #a35a00;
@@ -19,19 +21,19 @@
 }
 
 body {
-  background: #ffffff;
+  background: var(--color-fundo);
   color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
 @utility kicker { @apply text-[11px] font-semibold tracking-[0.18em] uppercase text-roxo; }
-@utility cartao { @apply rounded-xl border border-borda bg-white; }
-@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
-@utility btn-primario { @apply btn bg-roxo text-white hover:bg-roxo-escuro; }
+@utility cartao { @apply rounded-2xl border border-borda bg-white shadow-[0_1px_2px_rgba(23,20,46,0.04),0_4px_16px_-8px_rgba(23,20,46,0.08)]; }
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed; }
+@utility btn-primario { @apply btn bg-roxo text-white shadow-[0_6px_16px_-6px_rgba(91,61,245,0.6)] hover:bg-roxo-escuro; }
 @utility btn-secundario { @apply btn border border-borda bg-white text-tinta hover:bg-lavanda; }
 @utility btn-perigo { @apply btn border border-erro/30 bg-white text-erro hover:bg-erro-claro; }
-@utility campo { @apply w-full rounded-lg border border-borda bg-white px-3 py-2 text-sm outline-none focus:border-roxo focus:ring-2 focus:ring-roxo/15; }
+@utility campo { @apply w-full rounded-xl border border-borda bg-white px-3 py-2.5 text-sm outline-none transition focus:border-roxo focus:ring-4 focus:ring-roxo/10; }
 @utility rotulo { @apply mb-1 block text-xs font-medium text-tinta; }
 @utility chip { @apply rounded-full border border-borda px-3 py-1 text-xs font-medium text-tinta hover:border-roxo; }
 @utility chip-ativo { @apply rounded-full border border-roxo bg-roxo px-3 py-1 text-xs font-medium text-white; }
