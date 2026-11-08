@@ -15,7 +15,7 @@ export function fila(): Promise<PgBoss> {
       const soEnvio = process.env.FILA_SO_ENVIO === "true"; // painel serverless: só envia jobs
       const boss = new PgBoss({
         connectionString: url,
-        max: soEnvio ? 2 : 10,
+        max: soEnvio ? 1 : Number(process.env.FILA_MAX_CONEXOES ?? 6),
         supervise: !soEnvio,
         schedule: !soEnvio,
         migrate: !soEnvio,
