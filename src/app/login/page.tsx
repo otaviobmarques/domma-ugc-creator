@@ -19,8 +19,8 @@ export default function Login() {
       <form onSubmit={entrar} className="cartao w-full max-w-sm p-7">
         <Logo />
         <h1 className="mt-6 text-xl font-semibold">Entrar no UGC Creator</h1>
-        <label className="rotulo mt-5" htmlFor="email">E-mail</label>
-        <input id="email" name="email" type="email" required className="campo" autoComplete="username" />
+        <label className="rotulo mt-5" htmlFor="email">E-mail ou usuário</label>
+        <input id="email" name="email" type="text" required className="campo" autoComplete="username" autoCapitalize="none" />
         <label className="rotulo mt-3" htmlFor="senha">Senha</label>
         <input id="senha" name="senha" type="password" required className="campo" autoComplete="current-password" />
         {erro && <p className="mt-3 text-sm text-erro">{erro}</p>}
