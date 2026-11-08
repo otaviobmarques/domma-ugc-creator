@@ -182,7 +182,7 @@ export async function avancar(variacaoId: string) {
             video_final_url = coalesce(video_final_url, video_anterior_url),
             nota_qa = coalesce(nota_qa, (select nota from avaliacoes_qa a where a.variacao_id = variacoes.id order by criado_em desc limit 1))
           where id = ${variacaoId}`;
-        if (temAnterior) fechar = { ws: v.workspace_id, projetoId: v.projeto_id };
+        fechar = { ws: v.workspace_id, projetoId: v.projeto_id };
         const mensagem = `Variação ${v.letra}: ${NOME_ETAPA[p.etapa]} falhou ${falhas}× (principal e alternativo).${temAnterior ? " Mantive a versão anterior e pedi revisão humana." : " Escalei para o operador."}`;
         await tx`insert into auditoria (workspace_id, projeto_id, ator, acao, dados) values (${v.workspace_id}, ${v.projeto_id}, 'agente', 'decisao', ${tx.json({ mensagem })})`;
         return;
