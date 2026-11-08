@@ -274,3 +274,25 @@ end $$;
 
 -- Migrações incrementais (idempotentes)
 alter table variacoes add column if not exists video_anterior_url text;
+
+-- Versão Local (app de desktop ligado à conta): PCs conectados e montagem no PC.
+create table if not exists agentes_locais (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references workspaces(id) on delete cascade,
+  usuario_id uuid not null references usuarios(id) on delete cascade,
+  maquina text not null,
+  versao text not null default '',
+  visto_em timestamptz not null default now(),
+  criado_em timestamptz not null default now(),
+  unique (workspace_id, usuario_id, maquina)
+);
+alter table agentes_locais enable row level security;
+alter table jobs add column if not exists executor text not null default 'nuvem';
+alter table jobs add column if not exists agente_id uuid references agentes_locais(id) on delete set null;
+create table if not exists uploads_parciais (
+  job_id uuid not null references jobs(id) on delete cascade,
+  n int not null,
+  dados bytea not null,
+  primary key (job_id, n)
+);
+alter table uploads_parciais enable row level security;

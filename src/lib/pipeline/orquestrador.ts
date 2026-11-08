@@ -5,6 +5,7 @@
  * está pronto para rodar — por isso etapas independentes (B-roll e lip-sync)
  * rodam em paralelo e uma refação só zera o que precisa ser refeito.
  */
+import type postgres from "postgres";
 import { sql, auditar } from "../db";
 import { existe, local } from "../storage";
 import { loudness, probe } from "../ffmpeg";
@@ -57,6 +58,58 @@ export async function produzir(projetoId: string, ator: string) {
   await sql`update projetos set estado = 'em_producao', atualizado_em = now() where id = ${projetoId}`;
   await auditar(p.workspace_id, ator, "aprovou_roteiros", { projetoId, dados: { mensagem: `${ator.replace(/^usuario:/, "")} aprovou os roteiros` } });
   for (const v of vars) await avancar(v.id);
+}
+
+// ------------------------------------------------------------- Versão Local
+/** Um app de desktop deu sinal de vida no último minuto? */
+async function agenteOnline(tx: postgres.Sql | postgres.TransactionSql, workspaceId: string) {
+  const r = await tx`select 1 from agentes_locais where workspace_id = ${workspaceId} and visto_em > now() - interval '60 seconds' limit 1`;
+  return r.length > 0;
+}
+
+/** Tudo que a montagem precisa (as mesmas regras usadas pelo worker e pelo app de desktop). */
+export async function entradaMontagem(variacaoId: string) {
+  const [v] = await sql`select * from variacoes where id = ${variacaoId}`;
+  const [p] = await sql`select p.*, m.logo_url as marca_logo, m.musicas_permitidas from projetos p join marcas m on m.id = p.marca_id where p.id = ${v.projeto_id}`;
+  const cenas = await sql`select * from cenas where variacao_id = ${variacaoId} order by ordem`;
+  const fala = cenas.find((x) => x.tipo === "fala")!;
+  let musica: string | null = null;
+  const musicas = (p.musicas_permitidas as string[]) ?? [];
+  if (v.musica !== "sem_musica" && musicas.length) {
+    musica = v.musica === "calma" ? musicas.find((m) => /calm|suave|lofi/i.test(m)) ?? musicas[0] : v.musica === "animada" ? musicas.find((m) => /anim|upbeat|pop/i.test(m)) ?? musicas[0] : musicas[0];
+  }
+  return {
+    v, p,
+    formato: p.formato as string,
+    qualidade: p.qualidade as string,
+    roteiro: v.roteiro as Roteiro,
+    fala: fala.midia_url as string,
+    brolls: cenas.filter((x) => x.tipo === "broll" && x.midia_url).map((b) => ({ chave: b.midia_url as string, inicio: Number(b.inicio_s), fim: Number(b.fim_s) })),
+    logo: (p.marca_logo as string | null) ?? null,
+    musica,
+    marcaIA: true,
+  };
+}
+
+/** Grava o resultado de uma montagem (do worker ou do PC) e segue o pipeline. */
+export async function registrarMontagem(jobId: string, res: { chave: string; srt: string; srtChave: string | null; duracao: number }, ondeFoi: string) {
+  const [job] = await sql`select * from jobs where id = ${jobId}`;
+  const [v] = await sql`select id, letra from variacoes where id = ${job.variacao_id}`;
+  const usd = ondeFoi === "ffmpeg" ? PRECOS.montagemPorVideo : 0; // no PC não há custo de servidor
+  await registrarCusto({ workspaceId: job.workspace_id, projetoId: job.projeto_id, jobId, etapa: "montagem", provedor: ondeFoi === "ffmpeg" ? "interno" : "pc-local", unidade: "vídeo", quantidade: 1, usd });
+  await sql`update variacoes set video_final_url = ${res.chave}, legendas_srt = ${res.srt}, nota_qa = null where id = ${v.id}`;
+  await concluir(jobId, { video: res.chave, srt: res.srtChave, duracao: res.duracao }, ondeFoi);
+  await log(job.workspace_id, job.projeto_id, `Montagem da variação ${v.letra} pronta (${res.duracao.toFixed(1)} s${ondeFoi === "ffmpeg" ? "" : `, feita no PC ${ondeFoi.replace(/^pc:/, "")}`}).`);
+}
+
+/** O app de desktop não concluiu: a montagem volta para a nuvem. */
+export async function devolverMontagemParaNuvem(jobId: string, motivo: string) {
+  const [j] = await sql`update jobs set executor = 'nuvem', estado = 'na_fila', agente_id = null, progresso = 0, erro = ${motivo}
+    where id = ${jobId} and executor = 'local' and estado in ('na_fila','gerando') returning id, workspace_id, projeto_id`;
+  if (!j) return false;
+  await enfileirarEtapa(jobId);
+  await log(j.workspace_id, j.projeto_id, `Montagem devolvida para a nuvem (${motivo}).`);
+  return true;
 }
 
 // ------------------------------------------------------------- avanço
@@ -134,9 +187,12 @@ export async function avancar(variacaoId: string) {
         await tx`insert into auditoria (workspace_id, projeto_id, ator, acao, dados) values (${v.workspace_id}, ${v.projeto_id}, 'agente', 'decisao', ${tx.json({ mensagem })})`;
         return;
       }
-      const [j] = await tx`insert into jobs (workspace_id, projeto_id, variacao_id, cena_id, etapa, tentativa)
-        values (${v.workspace_id}, ${v.projeto_id}, ${variacaoId}, ${p.cenaId}, ${p.etapa}, ${falhas + 1}) returning id`;
-      novos.push({ id: j.id, atraso: falhas ? 5 * falhas : 0 });
+      // Montagem no PC (Versão Local) quando há um app conectado; senão, na nuvem.
+      // Depois de uma falha no PC, a nova tentativa vai para a nuvem.
+      const noPC = p.etapa === "montagem" && falhas === 0 && (await agenteOnline(tx, v.workspace_id));
+      const [j] = await tx`insert into jobs (workspace_id, projeto_id, variacao_id, cena_id, etapa, tentativa, executor)
+        values (${v.workspace_id}, ${v.projeto_id}, ${variacaoId}, ${p.cenaId}, ${p.etapa}, ${falhas + 1}, ${noPC ? "local" : "nuvem"}) returning id`;
+      if (!noPC) novos.push({ id: j.id, atraso: falhas ? 5 * falhas : 0 });
     }
   });
 
@@ -310,30 +366,9 @@ export async function consultarJob(jobId: string) {
 
 // ------------------------------------------------------------- montagem e QA
 async function executarMontagem(c: Contexto) {
-  const { job, p, v } = c;
-  const cenas = await sql`select * from cenas where variacao_id = ${v.id} order by ordem`;
-  const fala = cenas.find((x) => x.tipo === "fala")!;
-  let musica: string | null = null;
-  const musicas = (p.musicas_permitidas as string[]) ?? [];
-  if (v.musica !== "sem_musica" && musicas.length) {
-    musica = v.musica === "calma" ? musicas.find((m) => /calm|suave|lofi/i.test(m)) ?? musicas[0] : v.musica === "animada" ? musicas.find((m) => /anim|upbeat|pop/i.test(m)) ?? musicas[0] : musicas[0];
-  }
-  const res = await montar({
-    workspaceId: p.workspace_id,
-    projetoId: p.id,
-    formato: p.formato,
-    qualidade: p.qualidade,
-    roteiro: c.roteiro,
-    fala: fala.midia_url,
-    brolls: cenas.filter((x) => x.tipo === "broll").map((b) => ({ chave: b.midia_url, inicio: Number(b.inicio_s), fim: Number(b.fim_s) })),
-    logo: p.marca_logo,
-    musica,
-    marcaIA: true,
-  });
-  await registrarCusto({ workspaceId: p.workspace_id, projetoId: p.id, jobId: job.id, etapa: "montagem", provedor: "interno", unidade: "vídeo", quantidade: 1, usd: PRECOS.montagemPorVideo });
-  await sql`update variacoes set video_final_url = ${res.chave}, legendas_srt = ${res.srt}, nota_qa = null where id = ${v.id}`;
-  await concluir(job.id, { video: res.chave, srt: res.srtChave, duracao: res.duracao }, "ffmpeg");
-  await log(p.workspace_id, p.id, `Montagem da variação ${v.letra} pronta (${res.duracao.toFixed(1)} s, legendas e selo "gerado por IA").`);
+  const e = await entradaMontagem(c.v.id);
+  const res = await montar({ workspaceId: e.p.workspace_id, projetoId: e.p.id, formato: e.formato, qualidade: e.qualidade, roteiro: e.roteiro, fala: e.fala, brolls: e.brolls, logo: e.logo, musica: e.musica, marcaIA: e.marcaIA });
+  await registrarMontagem(c.job.id, res, "ffmpeg");
 }
 
 async function executarQA(c: Contexto) {

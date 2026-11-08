@@ -1,0 +1,43 @@
+{
+  "name": "domma-ugc-creator-desktop",
+  "productName": "Domma UGC Creator",
+  "version": "0.1.0",
+  "description": "Versão para PC do Domma UGC Creator: mesma conta da nuvem, montagem dos vídeos no computador.",
+  "author": "Domma Tecnologia",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build:core": "esbuild ../src/lib/pipeline/montagem-core.ts --bundle --platform=node --target=node20 --format=cjs --outfile=dist/core.js --external:ffmpeg-static",
+    "start": "npm run build:core && electron .",
+    "dist": "npm run build:core && electron-builder --win --x64 --publish never",
+    "release": "npm run build:core && electron-builder --win --x64 --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9",
+    "ffmpeg-static": "5.3.0"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "esbuild": "0.24.2"
+  },
+  "build": {
+    "appId": "br.com.dommasistemas.ugccreator",
+    "productName": "Domma UGC Creator",
+    "copyright": "Domma Tecnologia",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["main.js", "agente.js", "dist/**", "build/icon.png", "package.json"],
+    "asarUnpack": ["node_modules/ffmpeg-static/**"],
+    "extraResources": [{ "from": "../assets/fonts", "to": "fonts" }],
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Domma UGC Creator",
+      "artifactName": "DommaUGCCreator-Setup.${ext}"
+    },
+    "publish": [{ "provider": "github", "owner": "otaviobmarques", "repo": "domma-ugc-creator", "releaseType": "release" }]
+  }
+}

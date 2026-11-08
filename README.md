@@ -62,6 +62,21 @@ Os IDs de modelo dos agregadores ficam em `src/lib/providers/catalogo.ts` (sobre
 - **Texto do termo** (`src/lib/termo.ts`) precisa de validação jurídica (decisão nº 6).
 - Convite de novos usuários e papel *cliente* com login ainda não têm tela (o cliente aprova via link).
 
+## Versão para PC (Windows)
+
+App de desktop em `desktop/` (Electron), ligado à mesma conta da nuvem. A janela é o próprio painel; enquanto o app está aberto,
+a **montagem dos vídeos (FFmpeg) roda no PC**. A IA continua nas APIs dos provedores.
+
+- O app não tem senha do banco nem chaves de API: usa a sessão do usuário logado e a API `/api/agente/*`
+  (sinal de vida, pegar a próxima montagem, enviar o vídeo em partes de 3 MB, concluir ou devolver).
+- Se houver um PC online no workspace, o job de montagem é criado com `executor = 'local'`. Se nenhum PC pegar em 2 minutos
+  (ou travar por 15), o worker da nuvem assume. Depois de uma falha no PC, a nova tentativa vai direto para a nuvem.
+- O núcleo da montagem (`src/lib/pipeline/montagem-core.ts`) é o mesmo no servidor e no app.
+- **Publicar uma versão:** atualize `version` em `desktop/package.json` e envie uma tag igual (`git tag v0.1.1 && git push origin v0.1.1`).
+  O GitHub Actions gera o `DommaUGCCreator-Setup.exe` num Windows e publica no Release; o painel (página **Versão para PC**) e a
+  atualização automática do app pegam sempre o mais recente.
+- Testar localmente sem Electron: o agente (`desktop/agente.js`) é Node puro.
+
 ## Implantação atual
 
 - **Banco:** Supabase `domma-ugc-creator` (sa-east-1), usuário `ugc_app` (dono das tabelas; RLS ligado em todas).

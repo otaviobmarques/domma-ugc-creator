@@ -1,7 +1,7 @@
 "use client";
 import clsx from "clsx";
 import { usePathname } from "next/navigation";
-import { Home, Plus, Folder, Users, Package, Tag, Wallet, Settings, LogOut } from "lucide-react";
+import { Home, Plus, Folder, Users, Package, Tag, Wallet, Settings, LogOut, Monitor } from "lucide-react";
 import { Logo } from "./ui";
 
 const ITENS = [
@@ -13,6 +13,7 @@ const ITENS = [
   { href: "/marcas", t: "Marcas e clientes", i: Tag },
   { href: "/custos", t: "Custos", i: Wallet, papeis: ["admin", "produtor"] },
   { href: "/configuracoes", t: "Configurações", i: Settings, papeis: ["admin"] },
+  { href: "/versao-pc", t: "Versão para PC", i: Monitor },
 ];
 
 export function Sidebar({ workspace, usuario, papel }: { workspace: string; usuario: string; papel: string }) {

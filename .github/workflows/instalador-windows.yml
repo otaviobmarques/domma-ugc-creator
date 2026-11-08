@@ -1,0 +1,31 @@
+# Gera o instalador da Versão para PC (Windows) e publica no GitHub Releases.
+# Dispara ao enviar uma tag v* (ex.: v0.1.0, igual à versão em desktop/package.json)
+# ou manualmente em Actions › Instalador Windows › Run workflow.
+name: Instalador Windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Instalar dependências do app
+        working-directory: desktop
+        run: npm ci
+      - name: Gerar instalador e publicar no Release
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release
