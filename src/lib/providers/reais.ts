@@ -3,7 +3,7 @@
  * provedor. Endpoints e IDs de modelo a confirmar na prova de conceito —
  * os IDs vêm de catalogo.ts (sobrescrevíveis por variável de ambiente).
  */
-import { dataUri, local, mimeDe, novaChave, salvar } from "../storage";
+import { linkExterno, local, mimeDe, novaChave, salvar } from "../storage";
 import { probe } from "../ffmpeg";
 import { OPCOES, PRECOS } from "./catalogo";
 import { ErroProvedor, type ProvedorImagem, type ProvedorTTS, type ProvedorVideo, type StatusExterno } from "./types";
@@ -116,8 +116,8 @@ function falVideo(opcaoId: string, etapa: "lipsync" | "broll"): ProvedorVideo {
     async gerarFala({ imagem, audio, prompt, duracaoS, resolucao }, ctx) {
       const key = exigirChave(ctx.apiKey, "fal.ai");
       const q = await falEnviar(key, opcao.modelo!, {
-        image_url: await dataUri(imagem, mimeDe(imagem)),
-        audio_url: await dataUri(audio, mimeDe(audio)),
+        image_url: await linkExterno(imagem),
+        audio_url: await linkExterno(audio),
         prompt: prompt ?? "pessoa falando naturalmente para a câmera, gestos sutis",
       });
       const ref: FalRef = { modelo: opcao.modelo!, status_url: q.status_url, response_url: q.response_url, opcao: opcaoId, dur: duracaoS, resolucao };
@@ -127,7 +127,7 @@ function falVideo(opcaoId: string, etapa: "lipsync" | "broll"): ProvedorVideo {
       const key = exigirChave(ctx.apiKey, "fal.ai");
       const dur = duracaoS > 7 ? "10" : "5";
       const q = await falEnviar(key, opcao.modelo!, {
-        image_url: await dataUri(imagem, mimeDe(imagem)),
+        image_url: await linkExterno(imagem),
         prompt,
         duration: dur,
         resolution: resolucao,
@@ -170,7 +170,7 @@ export const falNanoBanana: ProvedorImagem = {
   id: "fal-nano-banana",
   async gerarImagemChave({ fotoAtor, fotosProduto, cena, formato }, ctx) {
     const key = exigirChave(ctx.apiKey, "fal.ai");
-    const imagens = await Promise.all([fotoAtor, ...fotosProduto.slice(0, 2)].filter(Boolean).map((c) => dataUri(c!, mimeDe(c!))));
+    const imagens = await Promise.all([fotoAtor, ...fotosProduto.slice(0, 2)].filter(Boolean).map((c) => linkExterno(c!)));
     // Sem imagem de partida (ex.: criar ator sintético): texto -> imagem com o prompt como veio.
     const modelo = imagens.length ? OPCOES.imagem[0].modelo! : (process.env.FAL_MODELO_IMAGEM_TEXTO ?? "fal-ai/nano-banana");
     const corpo = imagens.length

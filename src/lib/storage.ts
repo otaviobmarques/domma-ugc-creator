@@ -187,6 +187,16 @@ export function validarToken(token: string): string | null {
   return chave;
 }
 
+/**
+ * Link público assinado (validade curta) para provedores externos baixarem o arquivo.
+ * Sem APP_URL (ambiente local), cai para data URI embutido.
+ */
+export async function linkExterno(chave: string, validadeS = 2 * 3600) {
+  const base = process.env.APP_URL;
+  if (!base || !nuvem()) return dataUri(chave, mimeDe(chave));
+  return new URL(urlAssinada(chave, validadeS)!, base).toString();
+}
+
 export async function dataUri(chave: string, mime: string) {
   const b = await ler(chave);
   return `data:${mime};base64,${b.toString("base64")}`;

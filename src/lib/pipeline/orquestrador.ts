@@ -64,6 +64,7 @@ export async function avancar(variacaoId: string) {
   const novos: { id: string; atraso: number }[] = [];
   let pausar: { ws: string; projetoId: string } | null = null;
   let bloqueado: { ws: string; projetoId: string; letra: string; motivo: string } | null = null;
+  let fechar: { ws: string; projetoId: string } | null = null;
 
   // Guardrails consultados ANTES da transação: dentro dela, uma segunda conexão
   // do pool poderia esperar para sempre pela primeira (pool de 1 no serverless).
@@ -120,8 +121,16 @@ export async function avancar(variacaoId: string) {
     for (const p of pendentes) {
       const falhas = falhasSeguidas(p.etapa, p.cenaId ?? undefined);
       if (falhas >= MAX_TENTATIVAS) {
-        await tx`update variacoes set estado = 'falha', observacao = ${`${NOME_ETAPA[p.etapa]} falhou ${falhas} vezes; escalado ao operador`} where id = ${variacaoId}`;
-        const mensagem = `Variação ${v.letra}: ${NOME_ETAPA[p.etapa]} falhou ${falhas}× (principal e alternativo). Escalei para o operador.`;
+        // Se havia uma versão montada antes da refação, ela volta para revisão humana.
+        const temAnterior = !!v.video_anterior_url;
+        const obs = `${NOME_ETAPA[p.etapa]} falhou ${falhas} vezes na refação${temAnterior ? "; mantida a versão anterior para revisão" : "; escalado ao operador"}`;
+        await tx`update variacoes set
+            estado = ${temAnterior ? "aguardando_revisao" : "falha"}, observacao = ${obs},
+            video_final_url = coalesce(video_final_url, video_anterior_url),
+            nota_qa = coalesce(nota_qa, (select nota from avaliacoes_qa a where a.variacao_id = variacoes.id order by criado_em desc limit 1))
+          where id = ${variacaoId}`;
+        if (temAnterior) fechar = { ws: v.workspace_id, projetoId: v.projeto_id };
+        const mensagem = `Variação ${v.letra}: ${NOME_ETAPA[p.etapa]} falhou ${falhas}× (principal e alternativo).${temAnterior ? " Mantive a versão anterior e pedi revisão humana." : " Escalei para o operador."}`;
         await tx`insert into auditoria (workspace_id, projeto_id, ator, acao, dados) values (${v.workspace_id}, ${v.projeto_id}, 'agente', 'decisao', ${tx.json({ mensagem })})`;
         return;
       }
@@ -131,6 +140,10 @@ export async function avancar(variacaoId: string) {
     }
   });
 
+  if (fechar) {
+    const f = fechar as { ws: string; projetoId: string };
+    await fecharSeTerminou(f.projetoId, f.ws);
+  }
   if (bloqueado) {
     const b = bloqueado as { ws: string; projetoId: string; letra: string; motivo: string };
     await auditar(b.ws, "sistema", "bloqueio_consentimento", { projetoId: b.projetoId, dados: { mensagem: `Produção da variação ${b.letra} parada: ${b.motivo}` } });
@@ -393,11 +406,11 @@ async function executarQA(c: Contexto) {
     for (const [id, r] of refazer) {
       await sql`update cenas set midia_url = null, tentativas = tentativas + 1, forcar_provedor = ${r.forcar ?? null} where id = ${id}`;
     }
-    await sql`update variacoes set video_final_url = null, nota_qa = null, estado = 'em_producao' where id = ${v.id}`;
+    await sql`update variacoes set video_anterior_url = video_final_url, video_final_url = null, nota_qa = null, estado = 'em_producao' where id = ${v.id}`;
     const nomes = [...refazer.values()].map((r) => `${(r.cena as { tipo: string }).tipo} (${r.motivo})`);
     await log(p.workspace_id, p.id, `QA da variação ${v.letra}: nota ${nota}. Refazendo só ${nomes.join(", ")}.`, { cenas: ids });
   } else if (soRemontar) {
-    await sql`update variacoes set video_final_url = null, nota_qa = null, estado = 'em_producao' where id = ${v.id}`;
+    await sql`update variacoes set video_anterior_url = video_final_url, video_final_url = null, nota_qa = null, estado = 'em_producao' where id = ${v.id}`;
     await log(p.workspace_id, p.id, `QA da variação ${v.letra}: legendas abaixo do limite. Remontando (sem custo de geração).`);
   } else {
     const obs = escalados.length ? `Limite de refações atingido (${escalados.join(", ")}); revisar manualmente.` : null;

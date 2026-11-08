@@ -128,6 +128,7 @@ create table if not exists variacoes (
   nota_qa numeric(4,2),
   audio_url text,
   video_final_url text,
+  video_anterior_url text,       -- última versão montada, mantida durante refações
   legendas_srt text,
   musica text not null default 'manter',
   observacao text,
@@ -270,3 +271,6 @@ begin
     execute format('alter table %I enable row level security', t);
   end loop;
 end $$;
+
+-- Migrações incrementais (idempotentes)
+alter table variacoes add column if not exists video_anterior_url text;

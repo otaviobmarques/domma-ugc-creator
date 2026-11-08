@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { caminhoLocal, infoRemota, lerTrecho, mimeDe, nuvem, urlSupabaseAssinada, validarToken } from "@/lib/storage";
 
 const TRECHO_MAX = 3 * 1024 * 1024; // respostas da Vercel têm limite de 4,5 MB
+const INTEIRO_MAX = 4.2 * 1024 * 1024; // sem Range (ex.: provedores baixando a entrada), entrega inteiro até aqui
 
 /** Serve arquivos privados por URL assinada de validade curta (com Range para o player). */
 export async function GET(req: Request) {
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     const ini = range?.[1] ? Number(range[1]) : 0;
     const fimPedido = range?.[2] ? Math.min(Number(range[2]), tam - 1) : tam - 1;
     const fim = Math.min(fimPedido, ini + TRECHO_MAX - 1);
-    if (!range && tam <= TRECHO_MAX) {
+    if (!range && tam <= INTEIRO_MAX) {
       return new Response(new Uint8Array(await lerTrecho(chave, 0, tam)), { headers: { ...base, "content-length": String(tam) } });
     }
     const parte = await lerTrecho(chave, ini, fim - ini + 1);
